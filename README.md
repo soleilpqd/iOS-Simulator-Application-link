@@ -3,6 +3,8 @@ iOS-Simulator-Application-link
 
 Command line tool to create shortcut (symbolic link) to application folders of XCode 6 simulators.
 
+Tested on Mac OS X 10.9.5 with XCode 6.1.
+
 ###Install###
 
 After build project, copy the "iSimApp" binary to:
