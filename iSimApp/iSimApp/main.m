@@ -25,7 +25,7 @@ void printHelp( const char *prog ) {
 bool loadSimulators() {
     _allSims = [ SIMDevice allDevices ];
     if ( _allSims == nil ) {
-        fprintf( stderr, "Could not find XCode 6 simulator directories!" );
+        fprintf( stderr, "Could not find XCode 6 simulator directories!\n" );
         return false;
     }
     return true;
