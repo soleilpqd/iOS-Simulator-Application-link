@@ -133,8 +133,19 @@ int mapping( const char *path ) {
             NSString *appInfoFile = [ simMap stringByAppendingPathComponent:@".apps.plist" ];
             NSMutableArray *createdApps = [ NSMutableArray arrayWithContentsOfFile:appInfoFile ];
             NSMutableArray *currentApps = [ NSMutableArray array ];
+            NSMutableDictionary *appNameCount = [ NSMutableDictionary dictionary ];
             for ( SIMApp *app in sim.applications ) {
-                NSString *appMap = [ simMap stringByAppendingPathComponent:app.name ];
+                NSNumber *num = [ appNameCount objectForKey:app.name ];
+                if ( num == nil )
+                    num = [ NSNumber numberWithUnsignedInteger:1 ];
+                else
+                    num = [ NSNumber numberWithUnsignedInteger:[ num unsignedIntegerValue ] + 1 ];
+                [ appNameCount setObject:num forKey:app.name ];
+            }
+            for ( SIMApp *app in sim.applications ) {
+                NSUInteger appCnt = [[ appNameCount objectForKey:app.name ] unsignedIntegerValue ];
+                NSString *appMap = appCnt == 1 ? [ simMap stringByAppendingPathComponent:app.name ] :
+                [ simMap stringByAppendingPathComponent:[ NSString stringWithFormat:@"%@ (%@)", app.name, app.identifier ]];
                 if (![ fileMan fileExistsAtPath:appMap ]) {
                     if (![ fileMan createSymbolicLinkAtPath:appMap
                                         withDestinationPath:app.path
