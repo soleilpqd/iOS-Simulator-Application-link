@@ -144,8 +144,8 @@ int mapping( const char *path ) {
             }
             for ( SIMApp *app in sim.applications ) {
                 NSUInteger appCnt = [[ appNameCount objectForKey:app.name ] unsignedIntegerValue ];
-                NSString *appMap = appCnt == 1 ? [ simMap stringByAppendingPathComponent:app.name ] :
-                [ simMap stringByAppendingPathComponent:[ NSString stringWithFormat:@"%@ (%@)", app.name, app.identifier ]];
+                NSString *appName = appCnt == 1 ? app.name : [ app.name stringByAppendingFormat:@" (%@)", app.identifier ];
+                NSString *appMap = [ simMap stringByAppendingPathComponent:appName ];
                 if (![ fileMan fileExistsAtPath:appMap ]) {
                     if (![ fileMan createSymbolicLinkAtPath:appMap
                                         withDestinationPath:app.path
@@ -154,9 +154,9 @@ int mapping( const char *path ) {
                         return 1;
                     }
                 }
-                if ( createdApps && [ createdApps containsObject:app.name ])
-                    [ createdApps removeObject:app.name ];
-                [ currentApps addObject:app.name ];
+                if ( createdApps && [ createdApps containsObject:appName ])
+                    [ createdApps removeObject:appName ];
+                [ currentApps addObject:appName ];
             }
             // Remove unused app map point
             cleanApps( simMap, createdApps );
