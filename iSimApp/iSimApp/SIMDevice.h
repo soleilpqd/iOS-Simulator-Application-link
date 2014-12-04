@@ -11,10 +11,10 @@
 @interface SIMDevice : NSObject
 
 @property ( nonatomic, strong ) NSString *name;
+@property ( nonatomic, strong ) NSString *version;
 @property ( nonatomic, strong ) NSString *path;
 @property ( nonatomic, strong ) NSMutableArray *applications;
 
-+( instancetype )SIMDeviceWithPath:( NSString* )path;
 +( NSMutableArray* )allDevices;
 
 @end

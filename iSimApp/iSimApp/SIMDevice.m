@@ -40,9 +40,9 @@
     if ( deviceDic ) {
         SIMDevice *device = [[ SIMDevice alloc ] init ];
         device.path = path;
-        NSString *runtime = [[ deviceDic objectForKey:@"runtime" ] pathExtension ];
+        device.version = [[ deviceDic objectForKey:@"runtime" ] pathExtension ];
         device.name = [ NSString stringWithFormat:@"%@ - %@", [ deviceDic objectForKey:@"name" ],
-                       [[ runtime stringByReplacingOccurrencesOfString:@"iOS-"
+                       [[ device.version stringByReplacingOccurrencesOfString:@"iOS-"
                                                             withString:@"iOS " ] stringByReplacingOccurrencesOfString:@"-"
                         withString:@"." ]];
         return device;

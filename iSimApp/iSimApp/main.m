@@ -34,7 +34,10 @@ bool loadSimulators() {
 bool loadApps() {
     if ( _allSims == nil ) return false;
     for ( SIMDevice *device in _allSims ) {
-        device.applications = [ SIMApp allAppInFolder:[ device.path stringByAppendingPathComponent:@"data/Applications" ]];
+        if ([ device.version rangeOfString:@"iOS-8" ].location == 0 )
+            device.applications = [ SIMApp allApp6InFolder:[ device.path stringByAppendingPathComponent:@"data/Containers" ]];
+        else
+            device.applications = [ SIMApp allAppInFolder:[ device.path stringByAppendingPathComponent:@"data/Applications" ]];
     }
     return true;
 }
@@ -83,12 +86,25 @@ int listApp( const char *simName ) {
     return 1;
 }
 
-void cleanApps( NSString *simMap, NSMutableArray *unusedApps ) {
+void cleanApps( NSString *simMap, NSMutableDictionary *unusedApps ) {
     NSFileManager *fileMan = [ NSFileManager defaultManager ];
     if ( unusedApps && unusedApps.count ) {
-        for ( NSString *appName in unusedApps ) {
-            [ fileMan removeItemAtPath:[ simMap stringByAppendingPathComponent:appName ]
-                                 error:NULL ];
+        for ( NSString *appName in unusedApps.allKeys ) {
+            BOOL isIOS6 = [[ unusedApps objectForKey:appName ] boolValue ];
+            if ( isIOS6 ) {
+                NSString *subPath = [ simMap stringByAppendingPathComponent:appName ];
+                NSArray *array = [ fileMan contentsOfDirectoryAtPath:subPath
+                                                               error:nil ];
+                if ( array ) {
+                    for ( NSString *s in array ) {
+                        [ fileMan removeItemAtPath:[ subPath stringByAppendingPathComponent:s ]
+                                             error:nil ];
+                    }
+                }
+                [ fileMan removeItemAtPath:subPath error:nil ];
+            } else
+                [ fileMan removeItemAtPath:[ simMap stringByAppendingPathComponent:appName ]
+                                     error:NULL ];
         }
     }
 }
@@ -123,7 +139,7 @@ int mapping( const char *path ) {
                                           attributes:nil
                                                error:&error ]) {
                     fprintf( stderr, "Failed to create directory at \"%s\": %s\n", [ simMap UTF8String ], [ error.localizedDescription UTF8String ]);
-                    return 1;
+                    continue;
                 }
             }
             if ( createdSim && [ createdSim containsObject:sim.name ])
@@ -131,8 +147,8 @@ int mapping( const char *path ) {
             [ currentSim addObject:sim.name ];
             // App for current simulator
             NSString *appInfoFile = [ simMap stringByAppendingPathComponent:@".apps.plist" ];
-            NSMutableArray *createdApps = [ NSMutableArray arrayWithContentsOfFile:appInfoFile ];
-            NSMutableArray *currentApps = [ NSMutableArray array ];
+            NSMutableDictionary *createdApps = [ NSMutableDictionary dictionaryWithContentsOfFile:appInfoFile ];
+            NSMutableDictionary *currentApps = [ NSMutableDictionary dictionary ];
             NSMutableDictionary *appNameCount = [ NSMutableDictionary dictionary ];
             for ( SIMApp *app in sim.applications ) {
                 NSNumber *num = [ appNameCount objectForKey:app.name ];
@@ -146,17 +162,48 @@ int mapping( const char *path ) {
                 NSUInteger appCnt = [[ appNameCount objectForKey:app.name ] unsignedIntegerValue ];
                 NSString *appName = appCnt == 1 ? app.name : [ app.name stringByAppendingFormat:@" (%@)", app.identifier ];
                 NSString *appMap = [ simMap stringByAppendingPathComponent:appName ];
+                BOOL isIOS6App = app.documentPath != nil;
                 if (![ fileMan fileExistsAtPath:appMap ]) {
-                    if (![ fileMan createSymbolicLinkAtPath:appMap
-                                        withDestinationPath:app.path
+                    if ( isIOS6App ) {
+                        if ([ fileMan createDirectoryAtPath:appMap
+                                withIntermediateDirectories:NO
+                                                 attributes:nil
                                                       error:&error ]) {
-                        fprintf( stderr, "Failed to create link at \"%s\": %s\n", [ appMap UTF8String ], [ error.localizedDescription UTF8String ]);
-                        return 1;
+                            NSString *destination = [ appMap stringByAppendingPathComponent:@"Application" ];
+                            if (![ fileMan createSymbolicLinkAtPath:destination
+                                                withDestinationPath:app.path
+                                                              error:&error ]) {
+                                fprintf( stderr, "Failed to create link at \"%s\": %s\n",
+                                        [ destination UTF8String ], [ error.localizedDescription UTF8String ]);
+                                continue;
+                            }
+                            destination = [ appMap stringByAppendingPathComponent:@"UserData" ];
+                            if (![ fileMan createSymbolicLinkAtPath:destination
+                                                withDestinationPath:app.documentPath
+                                                              error:&error ]) {
+                                fprintf( stderr, "Failed to create link at \"%s\": %s\n",
+                                        [ destination UTF8String ], [ error.localizedDescription UTF8String ]);
+                                continue;
+                            }
+                        } else {
+                            fprintf( stderr, "Failed to create directory at \"%s\": %s\n",
+                                    [ appMap UTF8String ], [ error.localizedDescription UTF8String ]);
+                            continue;
+                        }
+                    } else {
+                        if (![ fileMan createSymbolicLinkAtPath:appMap
+                                            withDestinationPath:app.path
+                                                          error:&error ]) {
+                            fprintf( stderr, "Failed to create link at \"%s\": %s\n",
+                                    [ appMap UTF8String ], [ error.localizedDescription UTF8String ]);
+                            continue;
+                        }
                     }
                 }
-                if ( createdApps && [ createdApps containsObject:appName ])
-                    [ createdApps removeObject:appName ];
-                [ currentApps addObject:appName ];
+                if ( createdApps && [ createdApps.allKeys containsObject:appName ])
+                    [ createdApps removeObjectForKey:appName ];
+                [ currentApps setObject:[ NSNumber numberWithBool:isIOS6App ]
+                                 forKey:appName ];
             }
             // Remove unused app map point
             cleanApps( simMap, createdApps );
@@ -167,7 +214,7 @@ int mapping( const char *path ) {
         if ( createdSim && createdSim.count ) {
             for ( NSString *simName in createdSim ) {
                 NSString *simMap = [ targetPath stringByAppendingPathComponent:simName ];
-                NSMutableArray *createdApps = [ NSMutableArray arrayWithContentsOfFile:[ simMap stringByAppendingPathComponent:@".apps.plist" ]];
+                NSMutableDictionary *createdApps = [ NSMutableDictionary dictionaryWithContentsOfFile:[ simMap stringByAppendingPathComponent:@".apps.plist" ]];
                 cleanApps( simMap, createdApps );
                 [ fileMan removeItemAtPath:simMap error:NULL ];
             }

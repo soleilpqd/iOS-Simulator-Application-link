@@ -12,9 +12,11 @@
 
 @property ( nonatomic, strong ) NSString *name;
 @property ( nonatomic, strong ) NSString *identifier;
+@property ( nonatomic, strong ) NSString *bundleName;
 @property ( nonatomic, strong ) NSString *path;
+@property ( nonatomic, strong ) NSString *documentPath;
 
-+( instancetype )SIMAppWithPath:( NSString* )path;
 +( NSMutableArray* )allAppInFolder:( NSString* )path;
++( NSMutableArray* )allApp6InFolder:( NSString* )path;
 
 @end

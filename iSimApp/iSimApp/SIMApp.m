@@ -22,6 +22,7 @@
     }
     if ( appBundle ) {
         SIMApp *app = [[ SIMApp alloc ] init ];
+        app.bundleName = appBundle;
         app.path = path;
         
         NSString *dicPath = [ path stringByAppendingPathComponent:[ NSString stringWithFormat:@"%@/Info.plist", appBundle ]];
@@ -34,7 +35,11 @@
                 app.name = [ appInfo objectForKey:@"CFBundleName" ];
             if ( app.name == nil || app.name.length == 0 )
                 app.name = [ appInfo objectForKey:@"CFBundleIdentifier" ];
-            app.identifier = [ appInfo objectForKey:@"CFBundleIdentifier" ];
+            NSDictionary *idInfo = [ NSDictionary dictionaryWithContentsOfFile:[ app.path stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist" ]];
+            if ( idInfo )
+                app.identifier = [ idInfo objectForKey:@"MCMMetadataIdentifier" ];
+            if ( app.identifier == nil )
+                app.identifier = [ appInfo objectForKey:@"CFBundleIdentifier" ];
         }
         if ( app.name == nil || app.name.length == 0 ) app.name = appBundle;
         return app;
@@ -42,6 +47,7 @@
     return nil;
 }
 
+// path should be ~/Library/Developer/CoreSimulator/Devices/<udid>/data/Applications
 +( NSMutableArray* )allAppInFolder:(NSString *)path {
     NSMutableArray *result = nil;
     NSFileManager *fileMan = [ NSFileManager defaultManager ];
@@ -62,8 +68,46 @@
     return result;
 }
 
+// path should be ~/Library/Developer/CoreSimulator/Devices/<udid>/data/Containers
++( NSMutableArray* )allApp6InFolder:(NSString *)path {
+    NSMutableArray *allApps = [ self allAppInFolder:[ path stringByAppendingPathComponent:@"Bundle/Application" ]];
+    NSMutableArray *result = nil;
+    if ( allApps && allApps.count ) {
+        result = [ NSMutableArray array ];
+        // Now load documents path
+        NSFileManager *fileMan = [ NSFileManager defaultManager ];
+        NSString *docRootPath = [ path stringByAppendingPathComponent:@"Data/Application" ];
+        NSArray *subDirs = [ fileMan contentsOfDirectoryAtPath:docRootPath error:nil ];
+        if ( subDirs && subDirs.count ) {
+            for ( NSString *sDir in subDirs ) {
+                NSString *sDirPath = [ docRootPath stringByAppendingPathComponent:sDir ];
+                NSDictionary *info = [ NSDictionary dictionaryWithContentsOfFile:[ sDirPath stringByAppendingPathComponent:@".com.apple.mobile_container_manager.metadata.plist" ]];
+                if ( info ) {
+                    NSString *bundleId = [ info objectForKey:@"MCMMetadataIdentifier" ];
+                    if ( bundleId ) {
+                        SIMApp *appBundle = nil;
+                        for ( SIMApp *app in allApps ) {
+                            if ([ app.identifier isEqualToString:bundleId ]) {
+                                appBundle = app;
+                                break;
+                            }
+                        }
+                        if ( appBundle ) {
+                            appBundle.documentPath = sDirPath;
+                            [ result addObject:appBundle ];
+                            [ allApps removeObject:appBundle ];
+                        }
+                    }
+                }
+            }
+        }
+        [ result addObjectsFromArray:allApps ];
+    }
+    return result;
+}
+
 -( NSString* )description {
-    return [ NSString stringWithFormat:@"APP: %@", self.name ];
+    return [ NSString stringWithFormat:@"APP: %@ (%@)", self.name, self.identifier ];
 }
 
 @end
